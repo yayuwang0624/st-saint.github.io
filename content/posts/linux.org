@@ -752,6 +752,9 @@ sudo dd if=/dev/zero of=/dev/sda1 bs=1M status=progress
 ** install ISO
 - ~dd if=/archlinux-x86_64.iso of=/dev/sda bs=4M status=progress && sync~
 
+*** windows iso
+- ventoy
+
 * swap file
 #+begin_src sh
 sudo fallocate -l 1G /swap
