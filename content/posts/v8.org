@@ -1,0 +1,226 @@
+#+TITLE: V8
+#+DATE: Wed Mar 04 23:19:29 PST 2026
+#+Summary: 为什么我之前没写过 V8 呢
+#+categories[]: V8
+#+tags[]: V8
+
+
+* Terms
+- ICU: International Components for Unicode data
+- CSA: CodeStubAssembler
+- Torque: DSL for codegen
+
+* Builtin
+Builtins can be seen as chunks of code that are executable by the VM at runtime.
+
+V8’s builtins can be implemented using a number of different methods (each with different trade-offs):
+    1. Platform-dependent assembly language
+    2. C++
+    3. JavaScript
+    4. CodeStubAssembler
+    5. Torque
+
+CodeStubAssembler provides efficient low-level functionality that is very close to assembly language while remaining platform-independent and preserving readability.
+
+Torque is a V8-specific domain-specific language that is translated to CodeStubAssembler. As such, it extends upon CodeStubAssembler and offers static typing as well as readable and expressive syntax.
+
+#+begin_src org
+CPP: Builtin in C++. Entered via BUILTIN_EXIT frame.
+     Args: name
+TFJ: Builtin in Turbofan, with JS linkage (callable as Javascript function).
+     Args: name, arguments count, explicit argument names...
+TFS: Builtin in Turbofan, with CodeStub linkage.
+     Args: name, explicit argument names...
+TFC: Builtin in Turbofan, with CodeStub linkage and custom descriptor.
+     Args: name, interface descriptor
+TFH: Handlers in Turbofan, with CodeStub linkage.
+     Args: name, interface descriptor
+BCH: Bytecode Handlers, with bytecode dispatch linkage.
+     Args: name, OperandScale, Bytecode
+ASM: Builtin in platform-dependent assembly.
+     Args: name, interface descriptor
+#+end_src
+
+
+* Instruction
+
+
+** InstructionStartOf stacktrace
+
+*** read-only-heap
+
+#+begin_src gdb
+#0  v8::internal::EmbeddedData::InstructionStartOf (this=0xfffffff7db20 [rwRW,0xfffffff7db20-0xfffffff7db60], builtin=v8::internal::Builtin::kAddHandler)
+    at ../../src/snapshot/embedded/embedded-data-inl.h:14
+#1  0x0000000001cd9d08 in v8::internal::Deserializer<v8::internal::Isolate>::PostProcessNewObject (this=<optimized out>, map=..., obj=..., space=<optimized out>)
+    at ../../src/snapshot/deserializer.cc:498
+#2  0x0000000001cd7654 in v8::internal::Deserializer<v8::internal::Isolate>::ReadObject (this=<optimized out>, space=v8::internal::SnapshotSpace::kReadOnlyHeap)
+    at ../../src/snapshot/deserializer.cc:681
+#3  0x0000000001ce5b54 in v8::internal::Deserializer<v8::internal::Isolate>::ReadNewObject<v8::internal::SlotAccessorForRootSlots> (
+    this=0xfffffff7e010 [rwRW,0xfffffff7e010-0xfffffff7e380], data=152 '\230', slot_accessor=...) at ../../src/snapshot/deserializer.cc:878
+#4  0x0000000001cd9050 in v8::internal::Deserializer<v8::internal::Isolate>::ReadSingleBytecodeData<v8::internal::SlotAccessorForRootSlots> (
+    this=0xfffffff7db20 [rwRW,0xfffffff7db20-0xfffffff7db60], data=138 '\212', slot_accessor=...) at ../../src/snapshot/deserializer.cc:798
+#5  0x0000000001cd8b4c in v8::internal::Deserializer<v8::internal::Isolate>::ReadData (this=0xfffffff7e010 [rwRW,0xfffffff7e010-0xfffffff7e380], start=..., end=...)
+    at ../../src/snapshot/deserializer.cc:787
+#6  0x0000000001cf0c38 in v8::internal::RootVisitor::VisitRootPointer (this=0xfffffff7e010 [rwRW,0xfffffff7e010-0xfffffff7e380],
+    root=v8::internal::Root::kReadOnlyObjectCache, description=0x0, p=...) at ../../src/objects/visitors.h:78
+#7  v8::internal::ReadOnlyDeserializer::DeserializeIntoIsolate (this=0xfffffff7e010 [rwRW,0xfffffff7e010-0xfffffff7e380]) at ../../src/snapshot/read-only-deserializer.cc:103
+#8  0x0000000001476ef4 in v8::internal::ReadOnlyHeap::DeserializeIntoIsolate (this=0x4477e000 [rwRW,0x4477e000-0x44781000], isolate=0x446a0000 [rwRW,0x446a0000-0x446c0000],
+    read_only_snapshot_data=0xfffffff7f1d0 [rwRW,0xfffffff7f1d0-0xfffffff7f200], can_rehash=false) at ../../src/heap/read-only-heap.cc:122
+#9  0x0000000001476888 in v8::internal::ReadOnlyHeap::SetUp (isolate=0x446a0000 [rwRW,0x446a0000-0x446c0000],
+    read_only_snapshot_data=0xfffffff7f1d0 [rwRW,0xfffffff7f1d0-0xfffffff7f200], can_rehash=false) at ../../src/heap/read-only-heap.cc:80
+#10 0x000000000126d550 in v8::internal::Isolate::Init (this=0x446a0000 [rwRW,0x446a0000-0x446c0000], startup_snapshot_data=<optimized out>,
+    read_only_snapshot_data=0xfffffff7f1d0 [rwRW,0xfffffff7f1d0-0xfffffff7f200], shared_heap_snapshot_data=<optimized out>, can_rehash=<optimized out>)
+    at ../../src/execution/isolate.cc:4486
+#11 0x000000000126e794 in v8::internal::Isolate::InitWithSnapshot (this=0x446a0000 [rwRW,0x446a0000-0x446c0000],
+    startup_snapshot_data=0xfffffff7f250 [rwRW,0xfffffff7f250-0xfffffff7f280], read_only_snapshot_data=0xfffffff7f1d0 [rwRW,0xfffffff7f1d0-0xfffffff7f200],
+    shared_heap_snapshot_data=0xfffffff7f1a0 [rwRW,0xfffffff7f1a0-0xfffffff7f1d0], can_rehash=false) at ../../src/execution/isolate.cc:4162
+#12 0x0000000001d0c53c in v8::internal::Snapshot::Initialize (isolate=0x446a0000 [rwRW,0x446a0000-0x446c0000]) at ../../src/snapshot/snapshot.cc:182
+#13 0x0000000000ec000c in v8::Isolate::Initialize (v8_isolate=0x446a0000 [rwRW,0x446a0000-0x446c0000], params=...) at ../../src/api/api.cc:9523
+#14 0x0000000000ec04a4 in v8::Isolate::New (params=...) at ../../src/api/api.cc:9559
+#15 0x0000000000e4572c in v8::Shell::Main (argc=<optimized out>, argv=<optimized out>) at ../../src/d8/d8.cc:5904
+#16 0x0000000043aabadc in __libc_start1 (argc=12667968, argv=0xffffbff7f500 [rwRW,0xffffbff7f500-0xffffbff7f550], env=0xffffbff7f550 [rwRW,0xffffbff7f550-0xffffbff7f6e0],
+    cleanup=<optimized out>, mainX=0xe463f1 <main(int, char**)> [rxRE,0x3d0000-0x368c000] (sentry), data_cap=<optimized out>, code_cap=<optimized out>)
+    at /home/yayu/cheri/cheribsd/lib/libc/csu/libc_start1.c:248
+#17 0x0000000000e135d0 in _start (auxv=<optimized out>, cleanup=0x68e4f0 [rR,0x68e400-0x8ad400], obj=<optimized out>)
+    at /home/yayu/cheri/cheribsd/lib/csu/aarch64c/crt1_c.c:145
+#+end_src
+
+
+*** isolate table
+#+begin_src gdb
+#0  v8::internal::EmbeddedData::InstructionStartOf (this=0xfffffff7e460 [rwRW,0xfffffff7e460-0xfffffff7e4a0], builtin=v8::internal::Builtin::kAddHandler)
+    at ../../src/snapshot/embedded/embedded-data-inl.h:14
+#1  0x00000000010a36e8 in v8::internal::Builtins::InitializeIsolateDataTables (isolate=0x446a0000 [rwRW,0x446a0000-0x446c0000]) at ../../src/builtins/builtins.cc:353
+#2  0x000000000126dab4 in v8::internal::Isolate::Init (this=0x446a0000 [rwRW,0x446a0000-0x446c0000],
+    startup_snapshot_data=0xfffffff7f250 [rwRW,0xfffffff7f250-0xfffffff7f280], read_only_snapshot_data=<optimized out>,
+    shared_heap_snapshot_data=0xfffffff7f1a0 [rwRW,0xfffffff7f1a0-0xfffffff7f1d0], can_rehash=<optimized out>) at ../../src/execution/isolate.cc:4645
+#3  0x000000000126e794 in v8::internal::Isolate::InitWithSnapshot (this=0x446a0000 [rwRW,0x446a0000-0x446c0000],
+    startup_snapshot_data=0xfffffff7f250 [rwRW,0xfffffff7f250-0xfffffff7f280], read_only_snapshot_data=0xfffffff7f1d0 [rwRW,0xfffffff7f1d0-0xfffffff7f200],
+    shared_heap_snapshot_data=0xfffffff7f1a0 [rwRW,0xfffffff7f1a0-0xfffffff7f1d0], can_rehash=false) at ../../src/execution/isolate.cc:4162
+#4  0x0000000001d0c53c in v8::internal::Snapshot::Initialize (isolate=0x446a0000 [rwRW,0x446a0000-0x446c0000]) at ../../src/snapshot/snapshot.cc:182
+#5  0x0000000000ec000c in v8::Isolate::Initialize (v8_isolate=0x446a0000 [rwRW,0x446a0000-0x446c0000], params=...) at ../../src/api/api.cc:9523
+#6  0x0000000000ec04a4 in v8::Isolate::New (params=...) at ../../src/api/api.cc:9559
+#7  0x0000000000e4572c in v8::Shell::Main (argc=<optimized out>, argv=<optimized out>) at ../../src/d8/d8.cc:5904
+#8  0x0000000043aabadc in __libc_start1 (argc=4360, argv=0xffffbff7f500 [rwRW,0xffffbff7f500-0xffffbff7f550], env=0xffffbff7f550 [rwRW,0xffffbff7f550-0xffffbff7f6e0],
+    cleanup=<optimized out>, mainX=0xe463f1 <main(int, char**)> [rxRE,0x3d0000-0x368c000] (sentry), data_cap=<optimized out>, code_cap=<optimized out>)
+    at /home/yayu/cheri/cheribsd/lib/libc/csu/libc_start1.c:248
+#9  0x0000000000e135d0 in _start (auxv=<optimized out>, cleanup=0x45636e40 [rwRW,0x45636e40-0x45636ee0], obj=<optimized out>)
+    at /home/yayu/cheri/cheribsd/lib/csu/aarch64c/crt1_c.c:145
+#+end_src
+
+
+* Compile
+** args
+#+begin_src conf
+# Build arguments go here.
+# See "gn args <out_dir> --list" for available build arguments.
+is_component_build = true
+is_debug = true
+symbol_level = 2
+target_cpu = "x64"
+use_goma = false
+v8_enable_backtrace = true
+v8_enable_fast_mksnapshot = true
+v8_enable_slow_dchecks = true
+v8_optimized_debug = false
+v8_expose_symbols = true
+v8_symbol_level = 2
+cppgc_enable_object_names = true
+v8_enable_disassembler = true
+v8_enable_gdbjit = true
+#+end_src
+
+** command
+#+begin_src shell
+gn args out/Debug
+#----- add args -----#
+gn gen out/Debug
+#+end_src
+
+* Debug
+
+https://v8.dev/docs/gdb
+https://v8.dev/docs/gdb-jit
+
+** gdbinit
+=v8/tools/gdbinit=
+
+*** functions
+
+**** job
+#+begin_src gdb
+Print a v8 JavaScript object
+Usage: job tagged_ptr
+#+end_src
+
+**** jh
+#+begin_src gdb
+Print content of a v8::internal::Handle
+Usage: jh internal_handle
+#+end_src
+
+**** jlh
+#+begin_src gdb
+print-v8-local, jl, jlh
+Print content of v8::Local handle.
+#+end_src
+
+**** jco
+#+begin_src gdb
+Print a v8 Code object from an internal code address
+Usage: jco pc
+#+end_src
+
+**** jtt
+#+begin_src gdb
+Print the complete transition tree of the given v8 Map.
+Usage: jtt tagged_ptr
+#+end_src
+
+**** jst
+#+begin_src gdb
+Print the current JavaScript stack trace
+Usage: jst
+#+end_src
+
+**** jss
+#+begin_src gdb
+Skip the jitted stack on x64 to where we entered JS last.
+Usage: jss
+#+end_src
+
+**** bta
+#+begin_src gdb
+Print stack trace with assertion scopes
+Usage: bta
+#+end_src
+
+**** heap_find
+#+begin_src gdb
+Find the location of a given address in V8 pages.
+Usage: heap_find address
+#+end_src
+
+**** cpcp
+#+begin_src gdb
+Prints compressed pointer (raw value) after decompression.
+Usage: cpcp compressed_pointer
+#+end_src
+
+**** cpm
+#+begin_src gdb
+Prints member, compressed or not.
+Usage: cpm member
+#+end_src
+
+
+** js debug commands
+- ~DebugPrint~
+- ~DebugTrace~
+- ~SystemBreak~
+- [[https://source.chromium.org/chromium/v8/v8.git/+/05720af2b09a18be5c41bbf224a58f3f0618f6be:src/runtime/runtime.h;l=574][full commands]]
+
+
+* CHERI
+- fork commit: 0c4044b7336787781646e48b2f98f0c7d1b400a5
