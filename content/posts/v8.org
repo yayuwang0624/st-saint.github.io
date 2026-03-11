@@ -42,6 +42,95 @@ ASM: Builtin in platform-dependent assembly.
 #+end_src
 
 
+* Safepoints
+
+* Pipeline
+** Turbofan
+- set code instruction address:
+#+begin_src cpp
+MaybeHandle<Code> CompileTurbofan(Isolate* isolate, Handle<JSFunction> function,
+                                  Handle<SharedFunctionInfo> shared,
+                                  ConcurrencyMode mode,
+                                  BytecodeOffset osr_offset,
+                                  CompileResultBehavior result_behavior);
+// -> NotConcurrent test
+bool CompileTurbofan_Concurrent(Isolate* isolate,
+                                std::unique_ptr<TurbofanCompilationJob> job);
+// ->
+CompilationJob::Status OptimizedCompilationJob::ExecuteJob(
+    RuntimeCallStats* stats, LocalIsolate* local_isolate);
+// ->
+PipelineCompilationJob::Status PipelineCompilationJob::ExecuteJobImpl(
+    RuntimeCallStats* stats, LocalIsolate* local_isolate);
+// +
+PipelineCompilationJob::Status PipelineCompilationJob::FinalizeJobImpl(
+    Isolate* isolate);
+// ->
+MaybeHandle<Code> Factory::CodeBuilder::BuildInternal(
+    bool retry_allocation_or_fail);
+// ->
+Handle<Code> Factory::CodeBuilder::NewCode(const NewCodeOptions& options);
+#+end_src
+
+
+* Assembler
+
+** jit codegen
+
+#+begin_src backtrace
+#0  v8::internal::Assembler::adr (this=0x530a4d70 [rwRW,0x530a4c00-0x530a5800], rd=..., imm21=0)
+    at ../../src/codegen/arm64/assembler-arm64.cc:890
+#1  0x0000000004f499b0 in v8::internal::MacroAssembler::ComputeCodeStartAddress (
+    this=0x530a4d70 [rwRW,0x530a4c00-0x530a5800], rd=...)
+    at ../../src/codegen/arm64/macro-assembler-arm64.cc:4592
+#2  0x0000000005a93e3c in v8::internal::compiler::CodeGenerator::AssembleCodeStartRegisterCheck (
+    this=0x530a4c00 [rwRW,0x530a4c00-0x530a5800])
+    at ../../src/compiler/backend/arm64/code-generator-arm64.cc:987
+#3  0x00000000052e61b0 in v8::internal::compiler::CodeGenerator::AssembleCode (
+    this=0x530a4c00 [rwRW,0x530a4c00-0x530a5800])
+    at ../../src/compiler/backend/code-generator.cc:221
+#4  0x00000000059560f0 in v8::internal::compiler::AssembleCodePhase::Run (
+    this=0xfffffff7aa18 [rwRW,0xfffffff7aa18-0xfffffff7aa19],
+    data=0x530db2d0 [rwRW,0x530db000-0x530db700],
+    temp_zone=0x48e8faa0 [rwRW,0x48e8faa0-0x48e8fb10]) at ../../src/compiler/pipeline.cc:2649
+#5  0x0000000005945a74 in v8::internal::compiler::PipelineImpl::Run<v8::internal::compiler::AssembleCodePhase> (this=0x530db6b0 [rwRW,0x530db000-0x530db700])
+    at ../../src/compiler/pipeline.cc:1361
+#6  0x00000000059386f0 in v8::internal::compiler::PipelineImpl::AssembleCode (
+    this=0x530db6b0 [rwRW,0x530db000-0x530db700],
+    linkage=0x530a2d10 [rwRW,0x530a1000-0x530a3000]) at ../../src/compiler/pipeline.cc:4037
+#7  0x0000000005937c7c in v8::internal::compiler::PipelineCompilationJob::ExecuteJobImpl (
+    this=0x530db000 [rwRW,0x530db000-0x530db700], stats=0x0,
+    local_isolate=0x48e46480 [rwRW,0x48e46480-0x48e46600]) at ../../src/compiler/pipeline.cc:1290
+#8  0x0000000003bc42b8 in v8::internal::OptimizedCompilationJob::ExecuteJob (
+    this=0x530db000 [rwRW,0x530db000-0x530db700], stats=0x0,
+    local_isolate=0x48e46480 [rwRW,0x48e46480-0x48e46600]) at ../../src/codegen/compiler.cc:488
+#9  0x0000000003bdf4e0 in v8::internal::(anonymous namespace)::CompileTurbofan_NotConcurrent (
+    isolate=0x48e94000 [rwRW,0x48e94000-0x48eb4000], job=0x530db000 [rwRW,0x530db000-0x530db700])
+    at ../../src/codegen/compiler.cc:1045
+#10 0x0000000003bde9dc in v8::internal::(anonymous namespace)::CompileTurbofan (
+    isolate=0x48e94000 [rwRW,0x48e94000-0x48eb4000], function=..., shared=...,
+    mode=v8::internal::ConcurrencyMode::kSynchronous, osr_offset=...,
+    result_behavior=v8::internal::(anonymous namespace)::CompileResultBehavior::kDefault)
+    at ../../src/codegen/compiler.cc:1178
+#11 0x0000000003bce8ac in v8::internal::(anonymous namespace)::GetOrCompileOptimized (
+    isolate=0x48e94000 [rwRW,0x48e94000-0x48eb4000], function=...,
+    mode=v8::internal::ConcurrencyMode::kSynchronous,
+    code_kind=v8::internal::CodeKind::TURBOFAN, osr_offset=...,
+    result_behavior=v8::internal::(anonymous namespace)::CompileResultBehavior::kDefault)
+    at ../../src/codegen/compiler.cc:1323
+#12 0x0000000003bd0014 in v8::internal::Compiler::CompileOptimized (
+    isolate=0x48e94000 [rwRW,0x48e94000-0x48eb4000], function=...,
+    mode=v8::internal::ConcurrencyMode::kSynchronous, code_kind=v8::internal::CodeKind::TURBOFAN)
+    at ../../src/codegen/compiler.cc:2757
+#13 0x0000000004d382f0 in v8::internal::__RT_impl_Runtime_CompileOptimized (args=...,
+    isolate=0x48e94000 [rwRW,0x48e94000-0x48eb4000]) at ../../src/runtime/runtime-compiler.cc:140
+#14 0x0000000004d37eac in v8::internal::Runtime_CompileOptimized (args_length=1,
+    args_object=0xfffffff7c270 [rwRW,0xffffbff80000-0xfffffff80000],
+    isolate=0x48e94000 [rwRW,0x48e94000-0x48eb4000]) at ../../src/runtime/runtime-compiler.cc:98
+#15 0x00000000064e3ad8 in Builtins_CEntry_Return1_ArgvOnStack_NoBuiltinExit ()
+#+end_src
+
+
 * Instruction
 
 
@@ -49,7 +138,7 @@ ASM: Builtin in platform-dependent assembly.
 
 *** read-only-heap
 
-#+begin_src gdb
+#+begin_src backtrace
 #0  v8::internal::EmbeddedData::InstructionStartOf (this=0xfffffff7db20 [rwRW,0xfffffff7db20-0xfffffff7db60], builtin=v8::internal::Builtin::kAddHandler)
     at ../../src/snapshot/embedded/embedded-data-inl.h:14
 #1  0x0000000001cd9d08 in v8::internal::Deserializer<v8::internal::Isolate>::PostProcessNewObject (this=<optimized out>, map=..., obj=..., space=<optimized out>)
@@ -88,7 +177,7 @@ ASM: Builtin in platform-dependent assembly.
 
 
 *** isolate table
-#+begin_src gdb
+#+begin_src backtrace
 #0  v8::internal::EmbeddedData::InstructionStartOf (this=0xfffffff7e460 [rwRW,0xfffffff7e460-0xfffffff7e4a0], builtin=v8::internal::Builtin::kAddHandler)
     at ../../src/snapshot/embedded/embedded-data-inl.h:14
 #1  0x00000000010a36e8 in v8::internal::Builtins::InitializeIsolateDataTables (isolate=0x446a0000 [rwRW,0x446a0000-0x446c0000]) at ../../src/builtins/builtins.cc:353
@@ -224,3 +313,69 @@ Usage: cpm member
 
 * CHERI
 - fork commit: 0c4044b7336787781646e48b2f98f0c7d1b400a5
+** ISA
+- c16:
+
+
+** CHERI-CFI
+*** turbofan code
+
+**** SEAL reuse
+
+need to recheck if the inst is capability?
+
+#+begin_src backtrace
+#0  0x0000000004f94d5c in unsigned int v8::base::ReadUnalignedValue<unsigned int>(__uintcap_t) () at ../../src/base/memory.h:38
+#1  0x0000000004f9678c in v8::internal::Instruction::InstructionBits() const () at ../../src/codegen/arm64/instructions-arm64.h:91
+#2  0x0000000004f96760 in v8::internal::Instruction::Mask(unsigned int) const () at ../../src/codegen/arm64/instructions-arm64.h:112
+#3  0x0000000004f96614 in v8::internal::Instruction::IsLdrLiteralC() const () at ../../src/codegen/arm64/instructions-arm64.h:232
+#4  0x0000000004f95610 in v8::internal::Assembler::target_address_at(__uintcap_t, __uintcap_t) () at ../../src/codegen/arm64/assembler-arm64-inl.h:604
+#5  0x0000000004f95f98 in v8::internal::RelocInfo::target_address() () at ../../src/codegen/arm64/assembler-arm64-inl.h:779
+#6  0x000000000760788c in v8::internal::SetupIsolateDelegate::ReplacePlaceholders(v8::internal::Isolate*) () at ../../src/builtins/setup-builtins-internal.cc:246
+#7  0x0000000007659894 in v8::internal::SetupIsolateDelegate::SetupBuiltinsInternal(v8::internal::Isolate*) () at ../../src/builtins/setup-builtins-internal.cc:358
+#8  0x0000000006281f84 in v8::internal::SetupIsolateDelegate::SetupBuiltins(v8::internal::Isolate*, bool) () at ../../src/init/setup-isolate-full.cc:29
+#9  0x00000000051bc130 in v8::internal::Isolate::Init(v8::internal::SnapshotData*, v8::internal::SnapshotData*, v8::internal::SnapshotData*, bool) ()
+    at ../../src/execution/isolate.cc:4586
+#10 0x00000000051baf90 in v8::internal::Isolate::InitWithoutSnapshot() () at ../../src/execution/isolate.cc:4152
+#11 0x0000000004b7e4a8 in v8::SnapshotCreator::SnapshotCreator(v8::Isolate*, __intcap_t const*, v8::StartupData const*, bool) () at ../../src/api/api.cc:600
+#12 0x000000000616ddc0 in v8::internal::CreateSnapshotDataBlobInternal(v8::SnapshotCreator::FunctionCodeHandling, char const*, v8::Isolate*) ()
+    at ../../src/snapshot/snapshot.cc:774
+#13 0x0000000004b1ca54 in (anonymous namespace)::CreateSnapshotDataBlob(v8::Isolate*, char const*) () at ../../src/snapshot/mksnapshot.cc:161
+#14 0x0000000004b1c47c in main () at ../../src/snapshot/mksnapshot.cc:287
+#+end_src
+
+
+#+begin_src backtrace
+#0  0x0000000003c8fce4 in v8::base::ReadUnalignedValue<unsigned int> (p=0x4ae02309 [rwxRWE,0x4ae00000-0x52e40000] (invalid,sentry) ) at ../../src/base/memory.h:38
+#1  0x0000000003c91714 in v8::internal::Instruction::InstructionBits (this=0x4ae02309 [rwxRWE,0x4ae00000-0x52e40000] (invalid,sentry))
+    at ../../src/codegen/arm64/instructions-arm64.h:91
+#2  0x0000000003c916e8 in v8::internal::Instruction::Mask (this=0x4ae02309 [rwxRWE,0x4ae00000-0x52e40000] (invalid,sentry), mask=4290772992)
+    at ../../src/codegen/arm64/instructions-arm64.h:112
+#3  0x0000000003c9159c in v8::internal::Instruction::IsLdrLiteralC (this=0x4ae02309 [rwxRWE,0x4ae00000-0x52e40000] (invalid,sentry))
+    at ../../src/codegen/arm64/instructions-arm64.h:232
+#4  0x0000000003c90598 in v8::internal::Assembler::target_address_at (pc=0x4ae02309 [rwxRWE,0x4ae00000-0x52e40000] (invalid,sentry) , constant_pool=0x0 )
+    at ../../src/codegen/arm64/assembler-arm64-inl.h:604
+#5  0x0000000003c90d74 in v8::internal::RelocInfo::target_object (this=0xfffffff7acd0 [rwRW,0xfffffff7acb0-0xfffffff7ad20], cage_base=...)
+    at ../../src/codegen/arm64/assembler-arm64-inl.h:831
+#6  0x00000000059392b0 in v8::internal::compiler::PipelineImpl::CheckNoDeprecatedMaps (this=0x530db6b0 [rwRW,0x530db000-0x530db700], code=...)
+    at ../../src/compiler/pipeline.cc:4139
+#7  0x00000000059389d4 in v8::internal::compiler::PipelineCompilationJob::FinalizeJobImpl (this=0x530db000 [rwRW,0x530db000-0x530db700],
+    isolate=0x48e94000 [rwRW,0x48e94000-0x48eb4000]) at ../../src/compiler/pipeline.cc:1309
+#8  0x0000000003bc44d4 in v8::internal::OptimizedCompilationJob::FinalizeJob (this=0x530db000 [rwRW,0x530db000-0x530db700], isolate=0x48e94000 [rwRW,0x48e94000-0x48eb4000])
+    at ../../src/codegen/compiler.cc:499
+#9  0x0000000003bdf5a0 in v8::internal::(anonymous namespace)::CompileTurbofan_NotConcurrent (isolate=0x48e94000 [rwRW,0x48e94000-0x48eb4000],
+    job=0x530db000 [rwRW,0x530db000-0x530db700]) at ../../src/codegen/compiler.cc:1055
+#10 0x0000000003bde9dc in v8::internal::(anonymous namespace)::CompileTurbofan (isolate=0x48e94000 [rwRW,0x48e94000-0x48eb4000], function=..., shared=...,
+    mode=v8::internal::ConcurrencyMode::kSynchronous, osr_offset=..., result_behavior=v8::internal::(anonymous namespace)::CompileResultBehavior::kDefault)
+    at ../../src/codegen/compiler.cc:1178
+#11 0x0000000003bce8ac in v8::internal::(anonymous namespace)::GetOrCompileOptimized (isolate=0x48e94000 [rwRW,0x48e94000-0x48eb4000], function=...,
+    mode=v8::internal::ConcurrencyMode::kSynchronous, code_kind=v8::internal::CodeKind::TURBOFAN, osr_offset=...,
+    result_behavior=v8::internal::(anonymous namespace)::CompileResultBehavior::kDefault) at ../../src/codegen/compiler.cc:1323
+#12 0x0000000003bd0014 in v8::internal::Compiler::CompileOptimized (isolate=0x48e94000 [rwRW,0x48e94000-0x48eb4000], function=...,
+    mode=v8::internal::ConcurrencyMode::kSynchronous, code_kind=v8::internal::CodeKind::TURBOFAN) at ../../src/codegen/compiler.cc:2757
+#13 0x0000000004d382f0 in v8::internal::__RT_impl_Runtime_CompileOptimized (args=..., isolate=0x48e94000 [rwRW,0x48e94000-0x48eb4000])
+    at ../../src/runtime/runtime-compiler.cc:140
+#14 0x0000000004d37eac in v8::internal::Runtime_CompileOptimized (args_length=1, args_object=0xfffffff7c270 [rwRW,0xffffbff80000-0xfffffff80000],
+    isolate=0x48e94000 [rwRW,0x48e94000-0x48eb4000]) at ../../src/runtime/runtime-compiler.cc:98
+#15 0x00000000064e3ad8 in Builtins_CEntry_Return1_ArgvOnStack_NoBuiltinExit ()
+#+end_src
