@@ -41,6 +41,8 @@ ASM: Builtin in platform-dependent assembly.
 
 * Safepoints
 
+- depot
+
 * Pipeline
 ** Turbofan
 - set code instruction address:
@@ -125,6 +127,39 @@ Handle<Code> Factory::CodeBuilder::NewCode(const NewCodeOptions& options);
     args_object=0xfffffff7c270 [rwRW,0xffffbff80000-0xfffffff80000],
     isolate=0x48e94000 [rwRW,0x48e94000-0x48eb4000]) at ../../src/runtime/runtime-compiler.cc:98
 #15 0x00000000064e3ad8 in Builtins_CEntry_Return1_ArgvOnStack_NoBuiltinExit ()
+#+end_src
+
+
+** Compile OSR
+#+begin_src backtrace
+#0  v8::internal::compiler::CodeGenerator::AssembleCode (this=0x536a5000 [rwRW,0x536a5000-0x536a5c00]) at ../../src/compiler/backend/code-generator.cc:330
+#1  0x0000000005955e30 in v8::internal::compiler::AssembleCodePhase::Run (this=0xfffffff7a7d8 [rwRW,0xfffffff7a7d8-0xfffffff7a7d9],
+    data=0x530c42d0 [rwRW,0x530c4000-0x530c4700], temp_zone=0x48e874f0 [rwRW,0x48e874f0-0x48e87560]) at ../../src/compiler/pipeline.cc:2649
+#2  0x00000000059457b4 in v8::internal::compiler::PipelineImpl::Run<v8::internal::compiler::AssembleCodePhase> (this=0x530c46b0 [rwRW,0x530c4000-0x530c4700])
+    at ../../src/compiler/pipeline.cc:1361
+#3  0x0000000005938430 in v8::internal::compiler::PipelineImpl::AssembleCode (this=0x530c46b0 [rwRW,0x530c4000-0x530c4700], linkage=0x48f9ed00 [rwRW,0x48f9d000-0x48f9f000])
+    at ../../src/compiler/pipeline.cc:4037
+#4  0x00000000059379bc in v8::internal::compiler::PipelineCompilationJob::ExecuteJobImpl (this=0x530c4000 [rwRW,0x530c4000-0x530c4700], stats=0x0,
+    local_isolate=0x48e46480 [rwRW,0x48e46480-0x48e46600]) at ../../src/compiler/pipeline.cc:1290
+#5  0x0000000003bc3cf8 in v8::internal::OptimizedCompilationJob::ExecuteJob (this=0x530c4000 [rwRW,0x530c4000-0x530c4700], stats=0x0,
+    local_isolate=0x48e46480 [rwRW,0x48e46480-0x48e46600]) at ../../src/codegen/compiler.cc:488
+#6  0x0000000003bdef20 in v8::internal::(anonymous namespace)::CompileTurbofan_NotConcurrent (isolate=0x48e8c000 [rwRW,0x48e8c000-0x48eac000],
+    job=0x530c4000 [rwRW,0x530c4000-0x530c4700]) at ../../src/codegen/compiler.cc:1045
+#7  0x0000000003bde41c in v8::internal::(anonymous namespace)::CompileTurbofan (isolate=0x48e8c000 [rwRW,0x48e8c000-0x48eac000], function=..., shared=...,
+    mode=v8::internal::ConcurrencyMode::kSynchronous, osr_offset=..., result_behavior=v8::internal::(anonymous namespace)::CompileResultBehavior::kDefault)
+    at ../../src/codegen/compiler.cc:1178
+#8  0x0000000003bce2ec in v8::internal::(anonymous namespace)::GetOrCompileOptimized (isolate=0x48e8c000 [rwRW,0x48e8c000-0x48eac000], function=...,
+    mode=v8::internal::ConcurrencyMode::kSynchronous, code_kind=v8::internal::CodeKind::TURBOFAN, osr_offset=...,
+    result_behavior=v8::internal::(anonymous namespace)::CompileResultBehavior::kDefault) at ../../src/codegen/compiler.cc:1323
+#9  0x0000000003bd5448 in v8::internal::Compiler::CompileOptimizedOSR (isolate=0x48e8c000 [rwRW,0x48e8c000-0x48eac000], function=..., osr_offset=...,
+    mode=v8::internal::ConcurrencyMode::kSynchronous, code_kind=v8::internal::CodeKind::TURBOFAN) at ../../src/codegen/compiler.cc:3899
+#10 0x0000000004d3cedc in v8::internal::(anonymous namespace)::CompileOptimizedOSR (isolate=0x48e8c000 [rwRW,0x48e8c000-0x48eac000], function=..., osr_offset=...)
+    at ../../src/runtime/runtime-compiler.cc:454
+#11 0x0000000004d3a338 in v8::internal::__RT_impl_Runtime_CompileOptimizedOSR (args=..., isolate=0x48e8c000 [rwRW,0x48e8c000-0x48eac000])
+    at ../../src/runtime/runtime-compiler.cc:496
+#12 0x0000000004d3a100 in v8::internal::Runtime_CompileOptimizedOSR (args_length=0, args_object=0xfffffff7c320 [rwRW,0xffffbff80000-0xfffffff80000],
+    isolate=0x48e8c000 [rwRW,0x48e8c000-0x48eac000]) at ../../src/runtime/runtime-compiler.cc:487
+#13 0x00000000064e38d8 in Builtins_CEntry_Return1_ArgvOnStack_NoBuiltinExit ()
 #+end_src
 
 
@@ -228,6 +263,14 @@ gn gen out/Debug
 
 https://v8.dev/docs/gdb
 https://v8.dev/docs/gdb-jit
+
+** debug builtins
+#+begin_src gdb
+(gdb) tb v8::internal::Isolate::Init
+(gdb) r
+(gdb) b Builtins_InterpreterEntryTrampoline
+(gdb) b Builtins_BaselineOnStackReplacement
+#+end_src
 
 ** gdbinit
 =v8/tools/gdbinit=
