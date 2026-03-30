@@ -48,6 +48,8 @@ ASM: Builtin in platform-dependent assembly.
 
 * Pipeline
 ** Turbofan
+
+*** CompileTurbofan
 - set code instruction address:
 #+begin_src cpp
 MaybeHandle<Code> CompileTurbofan(Isolate* isolate, Handle<JSFunction> function,
@@ -58,12 +60,26 @@ MaybeHandle<Code> CompileTurbofan(Isolate* isolate, Handle<JSFunction> function,
 // -> NotConcurrent test
 bool CompileTurbofan_Concurrent(Isolate* isolate,
                                 std::unique_ptr<TurbofanCompilationJob> job);
+
+#+end_src
+
+*** AssembleCode
+
+#+begin_src cpp
 // ->
 CompilationJob::Status OptimizedCompilationJob::ExecuteJob(
     RuntimeCallStats* stats, LocalIsolate* local_isolate);
 // ->
 PipelineCompilationJob::Status PipelineCompilationJob::ExecuteJobImpl(
     RuntimeCallStats* stats, LocalIsolate* local_isolate);
+
+void CodeGenerator::AssembleCode();
+
+void Emit(Instr instruction); // masm_->buffer_start_
+#+end_src
+
+*** FinalizeCode
+#+begin_src cpp
 // +
 PipelineCompilationJob::Status PipelineCompilationJob::FinalizeJobImpl(
     Isolate* isolate);
@@ -72,6 +88,35 @@ MaybeHandle<Code> Factory::CodeBuilder::BuildInternal(
     bool retry_allocation_or_fail);
 // ->
 Handle<Code> Factory::CodeBuilder::NewCode(const NewCodeOptions& options);
+#+end_src
+
+* Calling Convention
+** Call
+#+begin_src cpp
+Builtins_InterpreterEntryTrampoline
+Builtins_JSEntryTrampoline
+Builtins_JSEntry
+v8::internal::(anonymous namespace)::Invoke
+Builtins_ResumeGeneratorHandler
+Builtins_InvokeIntrinsicHandler
+Builtins_CallRuntimeHandler
+Builtins_CallProperty0Handler
+Builtins_CallProperty1Handler
+Builtins_CallUndefinedReceiverHandler
+Builtins_InterpreterPushUndefinedAndArgsThenCall
+Builtins_CallUndefinedReceiver2Handler
+Builtins_Call_ReceiverIsAny
+Builtins_CallFunction_ReceiverIsAny
+Builtins_CompileLazy
+
+CallJSAndDispatch(function, context, args, receiver_mode);
+#+end_src
+
+** Builtins
+#+begin_src cpp
+IGNITION_HANDLER(CallUndefinedReceiver, InterpreterJSCallAssembler) {
+  JSCall(ConvertReceiverMode::kNullOrUndefined);
+}
 #+end_src
 
 
@@ -234,7 +279,7 @@ Handle<Code> Factory::CodeBuilder::NewCode(const NewCodeOptions& options);
 #+end_src
 
 
-* Compile
+* Compile V8
 ** args
 #+begin_src conf
 # Build arguments go here.
@@ -261,6 +306,13 @@ gn args out/Debug
 #----- add args -----#
 gn gen out/Debug
 #+end_src
+
+** clangd
+#+begin_src sh
+cmake ~/cheri/morello-llvm-project/llvm/ -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra"
+cmake --build ~/cheri/build/morello-llvm-project-build/ --target clangd
+#+end_src
+
 
 * Debug
 
@@ -421,4 +473,11 @@ need to recheck if the inst is capability?
 #14 0x0000000004d37eac in v8::internal::Runtime_CompileOptimized (args_length=1, args_object=0xfffffff7c270 [rwRW,0xffffbff80000-0xfffffff80000],
     isolate=0x48e94000 [rwRW,0x48e94000-0x48eb4000]) at ../../src/runtime/runtime-compiler.cc:98
 #15 0x00000000064e3ad8 in Builtins_CEntry_Return1_ArgvOnStack_NoBuiltinExit ()
+#+end_src
+
+
+** Test
+#+begin_src sh
+# v8/out/cfi
+../../cheri/distribute_v8_tests.py -M ../../v8-test-machines -d . --v8-root ../../ --remote-v8-root ~/v8/ -v --suites unittests -b out/cfi
 #+end_src
