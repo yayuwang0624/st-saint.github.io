@@ -760,6 +760,10 @@ sudo mkswap /swap
 sudo swapon /swap
 sudo swapon --show
 genfstab / > /etc/fstab
+
+# freebsd
+dd if=/dev/zero of=/swap bs=1m count=1024
+truncate -s 1G /swap
 #+end_src
 
 * misc
