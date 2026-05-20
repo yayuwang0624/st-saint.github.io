@@ -294,6 +294,33 @@ git config --add oh-my-zsh.hide-dirty 1
 bindkey -L
 #+end_src
 
+** nm
+List symbols from object files. Uppercase type = global, lowercase = local.
+
+*** options
+| Option | Description                                        |
+|--------+----------------------------------------------------|
+| ~-C~   | Demangle C++ symbol names                          |
+| ~-D~   | Show dynamic symbols (useful for shared libraries) |
+| ~-g~   | Show only external (global) symbols                |
+| ~-u~   | Show only undefined symbols                        |
+| ~-n~   | Sort by address                                    |
+| ~-S~   | Print size of defined symbols                      |
+
+*** symbol types
+| Type  | Meaning          |
+|-------+------------------|
+| ~T/t~ | text (code)      |
+| ~D/d~ | initialized data |
+| ~B/b~ | BSS              |
+| ~U~   | undefined        |
+
+#+begin_src sh
+nm -C a.out            # demangle C++ names
+nm -u a.out            # undefined symbols only
+nm -gD libfoo.so       # globals in a shared lib
+#+end_src
+
 * kernel
 
 ** dependencies
