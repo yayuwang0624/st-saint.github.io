@@ -720,6 +720,7 @@ add control = Control_L Control_R
 #+begin_src shell
 setxkbmap -option caps:ctrl_modifier
 #+end_src
+
 * gpg
 ** migrate
 
@@ -753,6 +754,7 @@ sudo gpgconf --kill gpg-agent
 #+end_src
 
 *** restart
+
 * disk
 ** format usb
 
@@ -791,6 +793,14 @@ genfstab / > /etc/fstab
 # freebsd
 dd if=/dev/zero of=/swap bs=1m count=1024
 truncate -s 1G /swap
+#+end_src
+
+* core dump
+
+#+begin_src shell
+ulimit -c unlimited
+
+cat /proc/sys/kernel/core_pattern
 #+end_src
 
 * misc
